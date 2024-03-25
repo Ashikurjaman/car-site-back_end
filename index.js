@@ -13,7 +13,22 @@ app.use(cors({
   credentials:true
 }));
 app.use(express.json());
-app.use(cookieParser())
+app.use(cookieParser());
+
+// custom middleware
+const verifyToken = async(req,res,next)=>{
+  const token = req.cookies?.token;
+  if(!token) {
+    return res.status(401).send({message:'unauthorized'});
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function(err, decoded) {
+    if(err) return res.status(401).send({message:'unauthorized'});
+     req.user = decoded;
+     console.log(req.user);
+     next();
+  });
+
+}
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.dcb6faa.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -44,13 +59,13 @@ async function run() {
       })
       .send({success:true});
     })
-
+    //service get data all
     app.get("/services", async (req, res) => {
       const cursor = servicesCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
-
+    //service get data by id
     app.get("/services/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -62,12 +77,18 @@ async function run() {
     });
 
     // booking part 
+    // booking add part
     app.post('/bookings',async (req, res) => {
       const booking = req.body;
       const result = await bookingCollection.insertOne(booking);
       res.send(result);
     })
-    app.get('/bookings',async(req,res)=>{
+    //booking get data
+    app.get('/bookings', verifyToken, async(req,res)=>{
+      console.log('user',req.user.email);
+      if(req.query.email !== req.user.email){
+        return res.status(401).send({message:'Forbidden Request'})
+      }
       let query ={};
       if(req.query?.email){
         query = {email:req.query.email};
@@ -75,16 +96,18 @@ async function run() {
       const result = await bookingCollection.find(query).toArray();
       res.send(result);
     })
+    //booking delete data
     app.delete('/bookings/:id',async(req,res)=>{
       const id =req.params.id;
       const query = {_id: new ObjectId(id)}
       const result = await bookingCollection.deleteOne(query)
       res.send(result);
     })
+    //booking update data
     app.patch('/bookings/:id',async(req,res)=>{
       const id =req.params.id;
       const updateBooking = req.body;
-      console.log(updateBooking)
+      console.log(updateBooking);
       const filter = {_id: new ObjectId(id)}
       const updateDoc = {
         $set: {
