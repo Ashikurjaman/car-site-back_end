@@ -55,7 +55,7 @@ async function run() {
       .cookie('token',token,{
         httpOnly:true,
         secure:false,
-        sameSite:'none',
+        sameSite:false,
       })
       .send({success:true});
     })
@@ -84,8 +84,8 @@ async function run() {
       res.send(result);
     })
     //booking get data
-    app.get('/bookings', verifyToken, async(req,res)=>{
-      console.log('user',req.user.email);
+    app.get('/bookings',verifyToken, async(req,res)=>{
+      console.log(req.cookies.token);
       if(req.query.email !== req.user.email){
         return res.status(401).send({message:'Forbidden Request'})
       }
